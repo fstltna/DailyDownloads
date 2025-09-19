@@ -9,15 +9,15 @@ Scans the files downloaded using jdownloads and emails the results to the specif
 
 2. Run this script to install the dependencies:
 
-	./installdeps
+        ./installdeps
 
 3. Run this script and the first time it will ask you to configure the tool.
 
-	./scan_downloads.pl
+        ./scan_downloads.pl
 
 	If you need to change the settings run:
 
-	./scan_downloads.pl prefs
+        ./scan_downloads.pl prefs
 
 4. That should be enough, it should be workable now.
 
