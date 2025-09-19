@@ -15,7 +15,7 @@ use Email::Valid;
 
 # No changes below here
 my $CurId=0;
-my $VERSION="1.0";
+my $VERSION="1.1";
 my $DB_Owner="";
 my $DB_Pswd="";
 my $DB_Name="";
@@ -221,6 +221,12 @@ print ($EmailFH "================================================\n");
 close ($EmailFH);
 system("cat $SortedFile >> $EmailMessage");
 unlink($SortedFile);
+
+if ($NumSeen == 0)
+{
+	# Didnt see any downloads
+	exit 0;
+}
 
 # Create the mail
 open(MAIL, "|/usr/sbin/sendmail -t");
