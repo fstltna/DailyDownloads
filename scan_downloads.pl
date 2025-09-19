@@ -8,7 +8,11 @@ use warnings;
 use DBI;
 use DBD::mysql;
 #use Email::Address;
+use Email::MIME;
 use Email::Valid;
+use Email::Simple;
+use Email::Simple::Creator;
+use Email::Sender::Simple qw(sendmail);
 
 # No changes below here
 my $CurId=0;
@@ -32,6 +36,10 @@ if (-f $TempFile)
 }
 my %SawFiles;
 my %SawSize;
+my $NumSeen = 0;
+my $hostname = `hostname`;
+chomp($hostname);
+my $EmailBody = "Downloads\t- File Name\t- File Size\n================================================\n";
 
 if (! defined($FILEEDITOR))
 {
@@ -180,8 +188,8 @@ while (my $row = $sth->fetchrow_hashref)
 			next;
 		}
 		$SawFiles{$FileName} += 1;
+		$NumSeen += 1;
 		$SawSize{$FileName} = $FileSize;
-		# CheckFileType();
 	}
 }
 for my $MyFile (keys %SawFiles)
@@ -207,11 +215,26 @@ if (! -f $SortedFile)
 	exit 1;
 }
 
+open (my $SortedFH, '<', $SortedFile) || die ($!);
 open (my $EmailFH, '>', $EmailMessage) || die ($!);
 print ($EmailFH "Downloads - File Name - File Size\n");
 print ($EmailFH "================================================\n");
 close ($EmailFH);
 system("cat $SortedFile >> $EmailMessage");
 unlink($SortedFile);
+
+# Create the mail
+open(MAIL, "|/usr/sbin/sendmail -t");
+
+# Email Header
+print MAIL "To: $NotifyEmail\n";
+print MAIL "From: noreply\@$hostname\n";
+print MAIL "Subject: $hostname: $NumSeen files downloaded\n\n";
+
+# Email Body
+my $message = `cat $EmailMessage`;
+print MAIL $message;
+close(MAIL);
+
 unlink($EmailMessage);
 exit(0);
