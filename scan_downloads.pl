@@ -225,6 +225,7 @@ unlink($SortedFile);
 if ($NumSeen == 0)
 {
 	# Didnt see any downloads
+	print "No downloads previous day\n";
 	exit 0;
 }
 
