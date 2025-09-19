@@ -7,12 +7,11 @@ use strict;
 use warnings;
 use DBI;
 use DBD::mysql;
-#use Email::Address;
-use Email::MIME;
+#use Email::MIME;
 use Email::Valid;
-use Email::Simple;
-use Email::Simple::Creator;
-use Email::Sender::Simple qw(sendmail);
+#use Email::Simple;
+#use Email::Simple::Creator;
+#use Email::Sender::Simple qw(sendmail);
 
 # No changes below here
 my $CurId=0;
