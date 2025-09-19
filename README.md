@@ -23,6 +23,6 @@ Scans the files downloaded using jdownloads and emails the results to the specif
 
 5. Add this to your crontab:
 
-	1 0 * * * /root/DailyDownloads/scan_downloads.pl > /dev/null 2>&1
+        1 0 * * * /root/DailyDownloads/scan_downloads.pl > /dev/null 2>&1
 
 
