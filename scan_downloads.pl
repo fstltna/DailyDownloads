@@ -26,11 +26,14 @@ my $DB_Prefix="";
 my $DB_Table="";
 my $dbh;
 my $CONF_FILE="$ENV{HOME}/.dailydownloads.ini";
-my $CurNotify="";
-my $CurName="";
 my $NotifyEmail="";
-my $UnknownType = "unknown";
 my $FILEEDITOR = $ENV{EDITOR};
+my $TempFile = "/tmp/scand_temp-$$.txt";
+if (-f $TempFile)
+{
+	print "Temp file alreadyt exists\n";
+	exit 1;
+}
 
 if (! defined($FILEEDITOR))
 {
@@ -163,9 +166,10 @@ $curyear = 1900 + $curyear;
 $curmon = 1 + $curmon;
 $curday = $curday -= 1;	# Set previous day
 
-print "curyear '$curyear'\n";
-print "curmon '$curmon'\n";
-print "curday '$curday'\n";
+#print "curyear '$curyear'\n";
+#print "curmon '$curmon'\n";
+#print "curday '$curday'\n";
+open (my $TempFH, '>', $TempFile) || die ($!);
 while (my $row = $sth->fetchrow_hashref)
 {
 	$CurId = $row->{'id'};
@@ -183,25 +187,31 @@ while (my $row = $sth->fetchrow_hashref)
 		my @DateString = split(/ /, $FileDateTime);
 		# print "\tDateOnly = '$DateString[0]'\n";
 		my ($FileYear, $FileMonth, $FileDay) = split(/-/, $DateString[0]);
-		print "Year = $FileYear\n";
-		print "Month = $FileMonth\n";
-		print "Day = $FileDay\n";
+		# print "Year = $FileYear\n";
+		# print "Month = $FileMonth\n";
+		# print "Day = $FileDay\n";
 		if ($curyear != $FileYear)
 		{
-			print "Year '$curyear' Different\n";
+			#print "Year '$curyear' Different\n";
 			next;
 		}
 		elsif ($curmon != $FileMonth)
 		{
-			print "Month '$curmon' Different\n";
+			# print "Month '$curmon' Different\n";
 			next;
 		}
 		elsif ($curday != $FileDay)
 		{
-			print "Day '$curday' Different\n";
+			#print "Day '$curday' Different\n";
 			next;
 		}
+		print "File from yesterday\n";
 		# CheckFileType();
 	}
+}
+close($TempFH);
+if (-f $TempFile)
+{
+	unlink ($TempFile);
 }
 exit(0);
