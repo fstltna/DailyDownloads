@@ -11,13 +11,7 @@ use DBD::mysql;
 use Email::Valid;
 
 # No changes below here
-my $CurTitle="";
-my $CurAlias="";
-my $CurFilePic="";
-my $CurFileName="";
 my $CurId=0;
-my $CurStatus="";
-my $timeout=5;
 my $VERSION="1.0";
 my $DB_Owner="";
 my $DB_Pswd="";
@@ -158,8 +152,6 @@ while (my $row = $sth->fetchrow_hashref)
 	my $FileName = $row->{'log_file_name'};
 	my $FileTitle = $row->{'log_title'};
 	my $FileDateTime = $row->{'log_datetime'};
-	# $CurFileName = $row->{'url_download'};
-	# print "Saw $CurTitle\n";
 	if ($FileTitle ne "")
 	{
 		#print "Saw '$FileTitle'\n";
