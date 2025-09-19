@@ -34,6 +34,7 @@ if (-f $TempFile)
 	print "Temp file alreadyt exists\n";
 	exit 1;
 }
+my %SawFiles;
 
 if (! defined($FILEEDITOR))
 {
@@ -183,11 +184,18 @@ while (my $row = $sth->fetchrow_hashref)
 			#print "Day '$curday' Different\n";
 			next;
 		}
-		print ($TempFH "FileTitle $FileTitle\n");
-		print ($TempFH "FileName $FileName\n");
-		print "File from yesterday\n";
+		$SawFiles{$FileName} += 1;
 		# CheckFileType();
 	}
+}
+print ($TempFH "Downloads - File Name\n");
+print ($TempFH "================================================\n");
+for my $MyFile (keys %SawFiles)
+{
+	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
+#	print ($TempFH "$SawFiles{$MyFile} - $FileName - $FileTitle\n");
+	print ($TempFH "$SawFiles{$MyFile} - $MyFile\n");
+	#print "File from yesterday: $FileName\n";
 }
 close($TempFH);
 if (-f $TempFile)
