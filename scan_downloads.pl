@@ -170,7 +170,13 @@ while (my $row = $sth->fetchrow_hashref)
 	{
 		print "Saw '$FileTitle'\n";
 		print "\tSaw '$FileName'\n";
-		print "\tSaw '$FileDateTime'\n";
+		# print "\tSaw '$FileDateTime'\n";
+		my @DateString = split(/ /, $FileDateTime);
+		print "\tDateOnly = '$DateString[0]'\n";
+		my ($FileYear, $FileMonth, $FileDay) = split(/-/, $DateString[0]);
+		print "Year = $FileYear\n";
+		print "Month = $FileMonth\n";
+		print "Day = $FileDay\n";
 		# CheckFileType();
 	}
 }
