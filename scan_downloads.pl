@@ -29,6 +29,7 @@ my $CONF_FILE="$ENV{HOME}/.dailydownloads.ini";
 my $NotifyEmail="";
 my $FILEEDITOR = $ENV{EDITOR};
 my $TempFile = "/tmp/dailydown_temp-$$.txt";
+my $SortedFile = "/tmp/dailydown_sorted-$$.txt";
 if (-f $TempFile)
 {
 	print "Temp file alreadyt exists\n";
@@ -188,8 +189,8 @@ while (my $row = $sth->fetchrow_hashref)
 		# CheckFileType();
 	}
 }
-print ($TempFH "Downloads - File Name\n");
-print ($TempFH "================================================\n");
+#print ($TempFH "Downloads - File Name\n");
+#print ($TempFH "================================================\n");
 for my $MyFile (keys %SawFiles)
 {
 	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
@@ -198,8 +199,11 @@ for my $MyFile (keys %SawFiles)
 	#print "File from yesterday: $FileName\n";
 }
 close($TempFH);
+
+# Sort the temp file
+system("sort -frn $TempFile > $SortedFile");
 if (-f $TempFile)
 {
-	#	unlink ($TempFile);
+	unlink ($TempFile);
 }
 exit(0);
