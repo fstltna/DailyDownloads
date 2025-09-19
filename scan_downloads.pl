@@ -36,6 +36,7 @@ if (-f $TempFile)
 	exit 1;
 }
 my %SawFiles;
+my %SawSize;
 
 if (! defined($FILEEDITOR))
 {
@@ -186,6 +187,7 @@ while (my $row = $sth->fetchrow_hashref)
 			next;
 		}
 		$SawFiles{$FileName} += 1;
+		$SawSize{$FileName} = $FileSize;
 		# CheckFileType();
 	}
 }
@@ -194,8 +196,9 @@ while (my $row = $sth->fetchrow_hashref)
 for my $MyFile (keys %SawFiles)
 {
 	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-#	print ($TempFH "$SawFiles{$MyFile} - $FileName - $FileTitle\n");
-	print ($TempFH "$SawFiles{$MyFile} - $MyFile\n");
+	#print "The size '$MyFile' is $SawSize{$MyFile}\n";
+	#print ($TempFH "$SawFiles{$MyFile} - $FileName - $FileTitle\n");
+	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}\n");
 	#print "File from yesterday: $FileName\n";
 }
 close($TempFH);
