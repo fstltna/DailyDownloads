@@ -1,0 +1,5 @@
+#!/bin/bash
+sudo apt install libmysqlclient-dev
+sudo cpan -i DBI
+sudo cpan -i DBD::mysql
+exit 0
