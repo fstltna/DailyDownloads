@@ -1,13 +1,14 @@
 #!/usr/bin/perl
 
-# This tool scans all the entries in the jddownloads database to set
-# icon to the type for that file
+# This tool scans the entries in the jddownloads download log for files
+# downloaded the previous day
 
 use strict;
 use warnings;
 use DBI;
 use DBD::mysql;
-
+#use Email::Address;
+use Email::Valid;
 
 # No changes below here
 my $CurTitle="";
@@ -17,18 +18,17 @@ my $CurFileName="";
 my $CurId=0;
 my $CurStatus="";
 my $timeout=5;
-my $VERSION="1.2";
+my $VERSION="1.0";
 my $DB_Owner="";
 my $DB_Pswd="";
 my $DB_Name="";
 my $DB_Prefix="";
 my $DB_Table="";
 my $dbh;
-my $CONF_FILE="$ENV{HOME}/.scanjdsettings.ini";
+my $CONF_FILE="$ENV{HOME}/.dailydownloads.ini";
 my $CurNotify="";
 my $CurName="";
-my $email="";
-my $IconDir="/var/www/html/images/jdownloads/fileimages/flat_1/";
+my $NotifyEmail="";
 my $UnknownType = "unknown";
 my $FILEEDITOR = $ENV{EDITOR};
 
@@ -48,10 +48,11 @@ my $CMDOPTION = shift;
 if (! -f $CONF_FILE)
 {
 	my $DefaultConf = <<'END_MESSAGE';
-DB_User root
-DB_Pswd foobar
-DB_DBName       joomla
-DB_DBtblpfx     zzz_
+DB_User	joomla
+DB_Pswd	foobar
+DB_DBName	joomla
+DB_DBtblpfx	zzz_
+NotifyEmail	some_address
 END_MESSAGE
 	open (my $FH, ">", $CONF_FILE) or die "Could not create config file '$CONF_FILE' $!";
         print $FH "$DefaultConf\n";
@@ -92,6 +93,10 @@ while(<CONF>)
 	{
 		$DB_Prefix = $FIELD_VALUE;
 	}
+	elsif ($FIELD_TYPE eq "NotifyEmail")
+	{
+		$NotifyEmail = $FIELD_VALUE;
+	}
 }
 close(CONF);
 
@@ -107,17 +112,6 @@ sub CheckFileType
 	my $FileType = substr($CurFileName, $DotPos + 1);
 #	print "File Type = $FileType\n";
 #	print "Saw $CurFileName\n";
-	if (-f "$IconDir/$FileType.png")
-	{
-		# Saw this file type
-#		print "Saw file type\n";
-	}
-	else
-	{
-		# Didn't see this file type
-#		print "Did not see file type - setting to $UnknownType\n";
-		$FileType = $UnknownType;
-	}
 	# Check if the file type has changed
 	if ($CurFilePic ne "$FileType.png")
 	{
@@ -126,15 +120,10 @@ print "\tCurFilePic = '$CurFilePic'\n";
 print "\tFileType = '$FileType.png'\n";
 		# Extensions differ, update file record
 		$CurFilePic = "$FileType.png";
-#next;
-		$dbh->do("UPDATE $DB_Table SET file_pic = ? WHERE id = ?",
-			undef,
-			$CurFilePic,
-			$CurId);
 	}
 }
 
-print("jddownloads file type updater ($VERSION)\n");
+print("dailydownloads log parser ($VERSION)\n");
 print("===========================================\n");
 
 if (defined $CMDOPTION)
@@ -142,10 +131,15 @@ if (defined $CMDOPTION)
         if ($CMDOPTION ne "prefs")
         {
                 print "Unknown command line option: '$CMDOPTION'\nOnly allowed option is 'prefs'\n";
-                exit 0;
+                exit 1;
         }
 	system("$FILEEDITOR $CONF_FILE");
 	exit 0;
+}
+unless (Email::Valid->address($NotifyEmail))
+{
+	print("Invalid email address: '$NotifyEmail'\n");
+	exit (1);
 }
 
 ### The database handle
@@ -154,10 +148,10 @@ $dbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
                            $DB_Pswd) 
                            or die "Can't connect to database: $DBI::errstr\n";
 
-$DB_Table = $DB_Prefix . "jdownloads_files";
+$DB_Table = $DB_Prefix . "jdownloads_logs";
 
 ### The statement handle
-my $sth = $dbh->prepare("SELECT id, title, alias, file_pic, url_download FROM $DB_Table");
+my $sth = $dbh->prepare("SELECT id, log_file_size, log_file_name, log_title, log_datetime FROM $DB_Table");
 
 $sth->execute or die $dbh->errstr;
 
@@ -166,14 +160,18 @@ my $rows_found = $sth->rows;
 while (my $row = $sth->fetchrow_hashref)
 {
 	$CurId = $row->{'id'};
-	$CurTitle = $row->{'title'};
-	$CurAlias = $row->{'alias'};
-	$CurFilePic = $row->{'file_pic'};
-	$CurFileName = $row->{'url_download'};
+	my $FileSize = $row->{'log_file_size'};
+	my $FileName = $row->{'log_file_name'};
+	my $FileTitle = $row->{'log_title'};
+	my $FileDateTime = $row->{'log_datetime'};
+	# $CurFileName = $row->{'url_download'};
 	# print "Saw $CurTitle\n";
-	if ($CurFileName ne "")
+	if ($FileTitle ne "")
 	{
-		CheckFileType();
+		print "Saw '$FileTitle'\n";
+		print "\tSaw '$FileName'\n";
+		print "\tSaw '$FileDateTime'\n";
+		# CheckFileType();
 	}
 }
 exit(0);

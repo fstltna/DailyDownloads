@@ -2,4 +2,5 @@
 sudo apt install libmysqlclient-dev
 sudo cpan -i DBI
 sudo cpan -i DBD::mysql
+sudo cpan -i Email::Valid
 exit 0
