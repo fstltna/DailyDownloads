@@ -157,6 +157,15 @@ $sth->execute or die $dbh->errstr;
 
 my $rows_found = $sth->rows;
 
+my ($sec,$min,$hour,$curday,$curmon,$curyear,$wday,$yday,$isdst) = localtime();
+
+$curyear = 1900 + $curyear;
+$curmon = 1 + $curmon;
+$curday = $curday -= 1;	# Set previous day
+
+print "curyear '$curyear'\n";
+print "curmon '$curmon'\n";
+print "curday '$curday'\n";
 while (my $row = $sth->fetchrow_hashref)
 {
 	$CurId = $row->{'id'};
@@ -172,11 +181,26 @@ while (my $row = $sth->fetchrow_hashref)
 		print "\tSaw '$FileName'\n";
 		# print "\tSaw '$FileDateTime'\n";
 		my @DateString = split(/ /, $FileDateTime);
-		print "\tDateOnly = '$DateString[0]'\n";
+		# print "\tDateOnly = '$DateString[0]'\n";
 		my ($FileYear, $FileMonth, $FileDay) = split(/-/, $DateString[0]);
 		print "Year = $FileYear\n";
 		print "Month = $FileMonth\n";
 		print "Day = $FileDay\n";
+		if ($curyear != $FileYear)
+		{
+			print "Year '$curyear' Different\n";
+			next;
+		}
+		elsif ($curmon != $FileMonth)
+		{
+			print "Month '$curmon' Different\n";
+			next;
+		}
+		elsif ($curday != $FileDay)
+		{
+			print "Day '$curday' Different\n";
+			next;
+		}
 		# CheckFileType();
 	}
 }
