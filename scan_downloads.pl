@@ -24,6 +24,7 @@ my $NotifyEmail="";
 my $FILEEDITOR = $ENV{EDITOR};
 my $TempFile = "/tmp/dailydown_temp-$$.txt";
 my $SortedFile = "/tmp/dailydown_sorted-$$.txt";
+my $EmailMessage = "/tmp/email-$$.txt";
 if (-f $TempFile)
 {
 	print "Temp file alreadyt exists\n";
@@ -183,8 +184,6 @@ while (my $row = $sth->fetchrow_hashref)
 		# CheckFileType();
 	}
 }
-#print ($TempFH "Downloads - File Name\n");
-#print ($TempFH "================================================\n");
 for my $MyFile (keys %SawFiles)
 {
 	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
@@ -201,4 +200,18 @@ if (-f $TempFile)
 {
 	unlink ($TempFile);
 }
+
+if (! -f $SortedFile)
+{
+	print "Sorted file not found - aborting\n";
+	exit 1;
+}
+
+open (my $EmailFH, '>', $EmailMessage) || die ($!);
+print ($EmailFH "Downloads - File Name - File Size\n");
+print ($EmailFH "================================================\n");
+close ($EmailFH);
+system("cat $SortedFile >> $EmailMessage");
+unlink($SortedFile);
+unlink($EmailMessage);
 exit(0);
