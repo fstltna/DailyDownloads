@@ -28,7 +28,7 @@ my $dbh;
 my $CONF_FILE="$ENV{HOME}/.dailydownloads.ini";
 my $NotifyEmail="";
 my $FILEEDITOR = $ENV{EDITOR};
-my $TempFile = "/tmp/scand_temp-$$.txt";
+my $TempFile = "/tmp/dailydown_temp-$$.txt";
 if (-f $TempFile)
 {
 	print "Temp file alreadyt exists\n";
@@ -103,29 +103,6 @@ while(<CONF>)
 }
 close(CONF);
 
-# Checks the file type
-sub CheckFileType
-{
-	my $DotPos = rindex($CurFileName, ".");
-	if ($DotPos == 0)
-	{
-		print "Did not see a dot in $CurFileName\n";
-		return;
-	}
-	my $FileType = substr($CurFileName, $DotPos + 1);
-#	print "File Type = $FileType\n";
-#	print "Saw $CurFileName\n";
-	# Check if the file type has changed
-	if ($CurFilePic ne "$FileType.png")
-	{
-print "CurFileName = '$CurFileName'\n";
-print "\tCurFilePic = '$CurFilePic'\n";
-print "\tFileType = '$FileType.png'\n";
-		# Extensions differ, update file record
-		$CurFilePic = "$FileType.png";
-	}
-}
-
 print("dailydownloads log parser ($VERSION)\n");
 print("===========================================\n");
 
@@ -170,6 +147,7 @@ $curday = $curday -= 1;	# Set previous day
 #print "curmon '$curmon'\n";
 #print "curday '$curday'\n";
 open (my $TempFH, '>', $TempFile) || die ($!);
+
 while (my $row = $sth->fetchrow_hashref)
 {
 	$CurId = $row->{'id'};
@@ -181,8 +159,8 @@ while (my $row = $sth->fetchrow_hashref)
 	# print "Saw $CurTitle\n";
 	if ($FileTitle ne "")
 	{
-		print "Saw '$FileTitle'\n";
-		print "\tSaw '$FileName'\n";
+		#print "Saw '$FileTitle'\n";
+		#print "\tSaw '$FileName'\n";
 		# print "\tSaw '$FileDateTime'\n";
 		my @DateString = split(/ /, $FileDateTime);
 		# print "\tDateOnly = '$DateString[0]'\n";
@@ -205,6 +183,8 @@ while (my $row = $sth->fetchrow_hashref)
 			#print "Day '$curday' Different\n";
 			next;
 		}
+		print ($TempFH "FileTitle $FileTitle\n");
+		print ($TempFH "FileName $FileName\n");
 		print "File from yesterday\n";
 		# CheckFileType();
 	}
@@ -212,6 +192,6 @@ while (my $row = $sth->fetchrow_hashref)
 close($TempFH);
 if (-f $TempFile)
 {
-	unlink ($TempFile);
+	#	unlink ($TempFile);
 }
 exit(0);
