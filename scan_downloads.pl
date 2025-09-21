@@ -12,6 +12,7 @@ use Email::Valid;
 #use Email::Simple;
 #use Email::Simple::Creator;
 #use Email::Sender::Simple qw(sendmail);
+use Number::Bytes::Human qw(format_bytes parse_bytes);
 
 # No changes below here
 my $CurId=0;
@@ -188,15 +189,17 @@ while (my $row = $sth->fetchrow_hashref)
 		}
 		$SawFiles{$FileName} += 1;
 		$NumSeen += 1;
+		my $human = Number::Bytes::Human->new(bs => 1000, round_style => 'round', precision => 2);
+		$FileSize = $human->format($FileSize);
 		$SawSize{$FileName} = $FileSize;
 	}
 }
 for my $MyFile (keys %SawFiles)
 {
 	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-	#print "The size '$MyFile' is $SawSize{$MyFile}kb\n";
+	#print "The size '$MyFile' is $SawSize{$MyFile}\n";
 	#print ($TempFH "$SawFiles{$MyFile} - $FileName - $FileTitle\n");
-	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}kb\n");
+	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}\n");
 	#print "File from yesterday: $FileName\n";
 }
 close($TempFH);
