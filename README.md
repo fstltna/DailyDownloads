@@ -1,4 +1,4 @@
-# scan_downloads (1.1.0)
+# scan_downloads (1.1.1)
 Scans the files downloaded using jdownloads and emails the results to the specified address.
 
 ***

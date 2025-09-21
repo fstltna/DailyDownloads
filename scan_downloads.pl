@@ -15,7 +15,7 @@ use Email::Valid;
 
 # No changes below here
 my $CurId=0;
-my $VERSION="1.1";
+my $VERSION="1.1.1";
 my $DB_Owner="";
 my $DB_Pswd="";
 my $DB_Name="";
@@ -194,9 +194,9 @@ while (my $row = $sth->fetchrow_hashref)
 for my $MyFile (keys %SawFiles)
 {
 	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-	#print "The size '$MyFile' is $SawSize{$MyFile}\n";
+	#print "The size '$MyFile' is $SawSize{$MyFile}kb\n";
 	#print ($TempFH "$SawFiles{$MyFile} - $FileName - $FileTitle\n");
-	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}\n");
+	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}kb\n");
 	#print "File from yesterday: $FileName\n";
 }
 close($TempFH);
