@@ -190,7 +190,14 @@ while (my $row = $sth->fetchrow_hashref)
 		$SawFiles{$FileName} += 1;
 		$NumSeen += 1;
 		my $human = Number::Bytes::Human->new(bs => 1000, round_style => 'round', precision => 2);
-		$FileSize = $human->format($FileSize);
+		if ($FileSize == 0)
+		{
+			$FileSize = "< 1kb";
+		}
+		else
+		{
+			$FileSize = $human->format($FileSize);
+		}
 		$SawSize{$FileName} = $FileSize;
 	}
 }
