@@ -16,7 +16,7 @@ use Number::Bytes::Human qw(format_bytes parse_bytes);
 
 # No changes below here
 my $CurId=0;
-my $VERSION="1.1.1";
+my $VERSION="1.2.0";
 my $DB_Owner="";
 my $DB_Pswd="";
 my $DB_Name="";
@@ -196,6 +196,7 @@ while (my $row = $sth->fetchrow_hashref)
 		}
 		else
 		{
+			$FileSize = $FileSize * 1000;
 			$FileSize = $human->format($FileSize);
 		}
 		$SawSize{$FileName} = $FileSize;
