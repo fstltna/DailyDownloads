@@ -1,5 +1,5 @@
-# scan_downloads (1.2.0) & scan_phodownloads.pl
-Scans the files downloaded using jdownloads or phocadownloads and emails the results to the specified address.
+# scan_downloads (1.2.0) & scan_phodownloads (1.0.0)
+Scans the files downloaded using jdownloads or phocadownloads on the previous day and emails the results to the specified address.
 
 ***
 
