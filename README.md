@@ -1,5 +1,5 @@
-# scan_downloads (1.2.0)
-Scans the files downloaded using jdownloads and emails the results to the specified address.
+# scan_downloads (1.2.0) & scan_phodownloads.pl
+Scans the files downloaded using jdownloads or phocadownloads and emails the results to the specified address.
 
 ***
 
@@ -11,7 +11,7 @@ Scans the files downloaded using jdownloads and emails the results to the specif
 
         ./installdeps
 
-3. Run this script and the first time it will ask you to configure the tool.
+3. For jdownloads processing run this script and the first time it will ask you to configure the tool.
 
         ./scan_downloads.pl
 
@@ -19,10 +19,21 @@ Scans the files downloaded using jdownloads and emails the results to the specif
 
         ./scan_downloads.pl prefs
 
-4. That should be enough, it should be workable now.
+4. For phocadownloads processing run this script and the first time it will ask you to configure the tool.
 
-5. Add this to your crontab:
+        ./scan_phodownloads.pl
+
+	If you need to change the settings run:
+
+        ./scan_phodownloads.pl prefs
+
+5. That should be enough, it should be workable now.
+
+6. Add this to your crontab for jdownloads:
 
         1 0 * * * /root/DailyDownloads/scan_downloads.pl > /dev/null 2>&1
 
+    or for phocadownloads:
+
+        1 0 * * * /root/DailyDownloads/scan_phodownloads.pl > /dev/null 2>&1
 
