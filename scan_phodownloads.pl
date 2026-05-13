@@ -37,11 +37,10 @@ if (-f $TempFile)
 	exit 1;
 }
 my %SawFiles;
-my %SawSize;
 my $NumSeen = 0;
 my $hostname = `hostname`;
 chomp($hostname);
-my $EmailBody = "Downloads\t- File Name\t- File Size\n================================================\n";
+my $EmailBody = "Downloads\tFile Name\n================================================\n";
 
 if (! defined($FILEEDITOR))
 {
@@ -167,7 +166,6 @@ open (my $TempFH, '>', $TempFile) || die ($!);
 while (my $row = $sth->fetchrow_hashref)
 {
 	$CurId = $row->{'id'};
-	#my $FileSize = $row->{'log_file_size'};
 	my $CurIP = $row->{'ip'};
 	my $CurPage = $row->{'page'};
 	my $FileDateTime = $row->{'date'};
@@ -215,9 +213,8 @@ while (my $row = $sth->fetchrow_hashref)
 for my $MyFile (keys %SawFiles)
 {
 	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-	#print "The size '$MyFile' is $SawSize{$MyFile}\n";
 	#print ($TempFH "$SawFiles{$MyFile} - $CurPage - $CurPage\n");
-	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}\n");
+	print ($TempFH "$SawFiles{$MyFile}\t\t$MyFile\n");
 	#print "File from yesterday: $CurPage\n";
 }
 close($TempFH);
@@ -237,7 +234,7 @@ if (! -f $SortedFile)
 
 open (my $SortedFH, '<', $SortedFile) || die ($!);
 open (my $EmailFH, '>', $EmailMessage) || die ($!);
-print ($EmailFH "Downloads - File Name - File Size\n");
+print ($EmailFH "Downloads\tFile Name\n");
 print ($EmailFH "================================================\n");
 close ($EmailFH);
 system("cat $SortedFile >> $EmailMessage");
