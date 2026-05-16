@@ -196,6 +196,7 @@ while (my $row = $sth->fetchrow_hashref)
 			next;
 		}
 		my $CurFileName = "";
+		my $CountIt = 0;
 		while (my $filerow = $filesth->fetchrow_hashref)
 		{
 			my $TempCurId = $filerow->{'id'};
@@ -203,11 +204,16 @@ while (my $row = $sth->fetchrow_hashref)
 			{
 				next;
 			}
+			$CountIt = 1;
 			$CurFileName  = $filerow->{'filename'};
 			last;
 		}
-		$SawFiles{$CurFileName} += 1;
-		$NumSeen += 1;
+		if ($CountIt != 0)
+		{
+			$SawFiles{$CurFileName} += 1;
+			$NumSeen += 1;
+		}
+		$CountIt = 0;
 	}
 }
 for my $MyFile (keys %SawFiles)
@@ -218,7 +224,7 @@ for my $MyFile (keys %SawFiles)
 	{
 		next;
 	}
-print "MyFile = '$MyFile'\n";	# ZZZ
+	#print "MyFile = '$MyFile'\n";	# ZZZ
 	print ($TempFH "$SawFiles{$MyFile}\t\t$MyFile\n");
 	#print "File from yesterday: $CurPage\n";
 }
