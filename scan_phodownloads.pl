@@ -33,7 +33,7 @@ my $SortedFile = "/tmp/dailyphocadown_sorted-$$.txt";
 my $EmailMessage = "/tmp/email-$$.txt";
 if (-f $TempFile)
 {
-	print "Temp file alreadyt exists\n";
+	print "Temp file already exists\n";
 	exit 1;
 }
 my %SawFiles;
@@ -212,8 +212,13 @@ while (my $row = $sth->fetchrow_hashref)
 }
 for my $MyFile (keys %SawFiles)
 {
-	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
+	#print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
 	#print ($TempFH "$SawFiles{$MyFile} - $CurPage - $CurPage\n");
+	if ($MyFile eq "")
+	{
+		next;
+	}
+print "MyFile = '$MyFile'\n";	# ZZZ
 	print ($TempFH "$SawFiles{$MyFile}\t\t$MyFile\n");
 	#print "File from yesterday: $CurPage\n";
 }
