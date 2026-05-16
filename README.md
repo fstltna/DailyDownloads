@@ -37,3 +37,7 @@ Scans the files downloaded using jdownloads or phocadownloads on the previous da
 
         1 0 * * * /root/DailyDownloads/scan_phodownloads.pl > /dev/null 2>&1
 
+7. To make sure you have the latest version cd into this directory and run
+
+        git pull
+
