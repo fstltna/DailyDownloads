@@ -134,6 +134,11 @@ $dbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
                            $DB_Owner,
                            $DB_Pswd) 
                            or die "Can't connect to database: $DBI::errstr\n";
+my $filedbh;
+$filedbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
+	$DB_Owner,
+	$DB_Pswd) 
+	or die "Can't connect to database: $DBI::errstr\n";
 
 $DB_Table = $DB_Prefix . "phocadownload_logging";
 
@@ -190,15 +195,42 @@ while (my $row = $sth->fetchrow_hashref)
 		$NumSeen += 1;
 	}
 }
+
+sub GetFileName
+{
+	my $FILE_DB_Table = $DB_Prefix . "phocadownload";
+	my $filesth = $filedbh->prepare("SELECT id, title, filename, date FROM $FILE_DB_Table");
+	$filesth->execute or die $dbh->errstr;
+	my $filerows_found = $filesth->rows;
+	my $WantFile = $_[0];
+	#print "WantFile = $WantFile\n";
+
+	my $CurFileName = "";
+	while (my $filerow = $filesth->fetchrow_hashref)
+	{
+		my $TempCurId = $filerow->{'id'};
+		if ($TempCurId != $WantFile)
+		{
+			next;
+		}
+		#print "saw it\n";
+		$CurFileName  = $filerow->{'filename'};
+		last;
+	}
+	#print "returning $CurFileName\n";
+	return $CurFileName;
+}
+
 for my $MyFile (keys %SawFiles)
 {
-	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
+	#print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
 	if ($MyFile eq "")
 	{
 		next;
 	}
 	#print "MyFile = '$MyFile'\n";	# ZZZ
-	print ($TempFH "$SawFiles{$MyFile}\t\t$MyFile\n");
+	my $FileName = GetFileName($MyFile);
+	print ($TempFH "$SawFiles{$MyFile}\t\t$FileName\n");
 }
 close($TempFH);
 
