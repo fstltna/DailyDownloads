@@ -134,7 +134,6 @@ $dbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
                            $DB_Owner,
                            $DB_Pswd) 
                            or die "Can't connect to database: $DBI::errstr\n";
-my $filedbh;
 $filedbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
 	$DB_Owner,
 	$DB_Pswd) 
@@ -216,6 +215,10 @@ sub GetFileName
 		#print "saw it\n";
 		$CurFileName  = $filerow->{'filename'};
 		last;
+	}
+	if ($CurFileName eq "")
+	{
+		$CurFileName  = $WantFile;
 	}
 	#print "returning $CurFileName\n";
 	return $CurFileName;
