@@ -134,23 +134,15 @@ $dbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
                            $DB_Owner,
                            $DB_Pswd) 
                            or die "Can't connect to database: $DBI::errstr\n";
-$filedbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
-                           $DB_Owner,
-                           $DB_Pswd) 
-                           or die "Can't connect to database: $DBI::errstr\n";
 
 $DB_Table = $DB_Prefix . "phocadownload_logging";
-$FILE_DB_Table = $DB_Prefix . "phocadownload";
 
 ### The statement handle
 my $sth = $dbh->prepare("SELECT id, fileid, catid, userid, ip, page, date, type, params FROM $DB_Table");
-my $filesth = $filedbh->prepare("SELECT id, title, filename, date FROM $FILE_DB_Table");
 
 $sth->execute or die $dbh->errstr;
-$filesth->execute or die $dbh->errstr;
 
 my $rows_found = $sth->rows;
-my $filerows_found = $filesth->rows;
 
 my ($sec,$min,$hour,$curday,$curmon,$curyear,$wday,$yday,$isdst) = localtime();
 
@@ -167,12 +159,10 @@ while (my $row = $sth->fetchrow_hashref)
 {
 	$CurId = $row->{'id'};
 	my $CurIP = $row->{'ip'};
-	my $CurPage = $row->{'page'};
 	my $FileDateTime = $row->{'date'};
 	my $CurFileId = $row->{'fileid'};
 	if ($CurFileId != 0)
 	{
-		#print "\tSaw '$CurPage'\n";
 		# print "\tSaw '$FileDateTime'\n";
 		my @DateString = split(/ /, $FileDateTime);
 		# print "\tDateOnly = '$DateString[0]'\n";
@@ -195,38 +185,20 @@ while (my $row = $sth->fetchrow_hashref)
 			#print "Day '$curday' Different\n";
 			next;
 		}
-		my $CurFileName = "";
-		my $CountIt = 0;
-		while (my $filerow = $filesth->fetchrow_hashref)
-		{
-			my $TempCurId = $filerow->{'id'};
-			if ($TempCurId != $CurFileId)
-			{
-				next;
-			}
-			$CountIt = 1;
-			$CurFileName  = $filerow->{'filename'};
-			last;
-		}
-		if ($CountIt != 0)
-		{
-			$SawFiles{$CurFileName} += 1;
-			$NumSeen += 1;
-		}
-		$CountIt = 0;
+		#print "sawfileid $CurFileId\n";
+		$SawFiles{$CurFileId} += 1;
+		$NumSeen += 1;
 	}
 }
 for my $MyFile (keys %SawFiles)
 {
-	#print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-	#print ($TempFH "$SawFiles{$MyFile} - $CurPage - $CurPage\n");
+	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
 	if ($MyFile eq "")
 	{
 		next;
 	}
 	#print "MyFile = '$MyFile'\n";	# ZZZ
 	print ($TempFH "$SawFiles{$MyFile}\t\t$MyFile\n");
-	#print "File from yesterday: $CurPage\n";
 }
 close($TempFH);
 
