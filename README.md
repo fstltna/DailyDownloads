@@ -1,4 +1,4 @@
-# scan_downloads (1.2.0) & scan_phodownloads (1.0.0)
+# scan_downloads (1.2.0) & scan_phodownloads (1.0.0) & disable_missing (1.0.0)
 Scans the files downloaded using jdownloads or phocadownloads on the previous day and emails the results to the specified address.
 
 ***
@@ -40,4 +40,7 @@ Scans the files downloaded using jdownloads or phocadownloads on the previous da
 7. To make sure you have the latest version cd into this directory and run
 
         git pull
+
+8. If you want to disable files that do not exist run:
+        disable_missing.pl
 
