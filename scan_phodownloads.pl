@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
-# This tool scans the entries in the jddownloads download log for files
-# downloaded the previous day
+# This tool scans the entries in the phocadownloadsa log file for
+# entries for files downloaded the previous day
 
 use strict;
 use warnings;
