@@ -4,4 +4,5 @@ sudo cpan -i DBI
 sudo cpan -i DBD::mysql
 sudo cpan -i Email::Valid
 sudo cpan -i Number::Bytes::Human
+sudo cpan -i Mail::Address
 exit 0

@@ -1,54 +1,27 @@
 #!/usr/bin/perl
 
-# This tool scans the entries in the jddownloads download log for files
-# downloaded the previous day
+# This tool scans the entries in the jdownloads download log for files
+# downloaded the previous day and emails a summary table.
 
 use strict;
 use warnings;
 use DBI;
-use DBD::mysql;
-#use Email::MIME;
 use Email::Valid;
-#use Email::Simple;
-#use Email::Simple::Creator;
-#use Email::Sender::Simple qw(sendmail);
-use Number::Bytes::Human qw(format_bytes parse_bytes);
+use Number::Bytes::Human;
+use POSIX qw(mktime strftime);
 
 # No changes below here
-my $CurId=0;
-my $VERSION="1.2.0";
-my $DB_Owner="";
-my $DB_Pswd="";
-my $DB_Name="";
-my $DB_Prefix="";
-my $DB_Table="";
-my $dbh;
-my $CONF_FILE="$ENV{HOME}/.dailydownloads.ini";
-my $NotifyEmail="";
-my $FILEEDITOR = $ENV{EDITOR};
-my $TempFile = "/tmp/dailydown_temp-$$.txt";
-my $SortedFile = "/tmp/dailydown_sorted-$$.txt";
-my $EmailMessage = "/tmp/email-$$.txt";
-if (-f $TempFile)
-{
-	print "Temp file alreadyt exists\n";
-	exit 1;
-}
-my %SawFiles;
-my %SawSize;
-my $NumSeen = 0;
+my $VERSION    = "1.4.0";
+my $DB_Owner   = "";
+my $DB_Pswd    = "";
+my $DB_Name    = "";
+my $DB_Prefix  = "";
+my $NotifyEmail = "";
+my $CONF_FILE  = "$ENV{HOME}/.dailydownloads.ini";
+my $FILEEDITOR = (defined $ENV{EDITOR} && $ENV{EDITOR} ne "") ? $ENV{EDITOR} : "vi";
+
 my $hostname = `hostname`;
 chomp($hostname);
-my $EmailBody = "Downloads\t- File Name\t- File Size\n================================================\n";
-
-if (! defined($FILEEDITOR))
-{
-        $FILEEDITOR = "vi";
-}
-elsif ($FILEEDITOR eq "")
-{
-        $FILEEDITOR = "vi";
-}
 
 # Get if they said a option
 my $CMDOPTION = shift;
@@ -64,174 +37,105 @@ DB_DBtblpfx	zzz_
 NotifyEmail	some_address
 END_MESSAGE
 	open (my $FH, ">", $CONF_FILE) or die "Could not create config file '$CONF_FILE' $!";
-        print $FH "$DefaultConf\n";
+	print $FH $DefaultConf;
 	close($FH);
 	system("$FILEEDITOR $CONF_FILE");
 	exit 0;
 }
 
-open(CONF, "<$CONF_FILE") || die("Unable to read config file '$CONF_FILE'");
-while(<CONF>)
+open(my $CONF, "<", $CONF_FILE) || die("Unable to read config file '$CONF_FILE': $!");
+while (<$CONF>)
 {
-	chop;
-	if ($_ eq "")
+	s/\r?\n$//;		# chomp, also handles CRLF line endings
+	next if ($_ eq "");
+	my ($FIELD_TYPE, $FIELD_VALUE) = split(/\t/, $_, 2);
+	if (! defined($FIELD_VALUE))
 	{
+		print "No tab-separated value for config line '$_'\n";
 		next;
 	}
-	my ($FIELD_TYPE, $FIELD_VALUE) = split (/	/, $_);
-	#print("Type is $FIELD_TYPE\n");
-	if (! defined($FIELD_TYPE))
-	{
-		# Field type not defined
-		print "Field type not defined for '$_'\n";
-		next;
-	}
-	if ($FIELD_TYPE eq "DB_User")
-	{
-		$DB_Owner = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "DB_Pswd")
-	{
-		$DB_Pswd = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "DB_DBName")
-	{
-		$DB_Name = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "DB_DBtblpfx")
-	{
-		$DB_Prefix = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "NotifyEmail")
-	{
-		$NotifyEmail = $FIELD_VALUE;
-	}
+	if    ($FIELD_TYPE eq "DB_User")     { $DB_Owner    = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "DB_Pswd")     { $DB_Pswd     = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "DB_DBName")   { $DB_Name     = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "DB_DBtblpfx") { $DB_Prefix   = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "NotifyEmail") { $NotifyEmail = $FIELD_VALUE; }
 }
-close(CONF);
+close($CONF);
 
 print("dailydownloads log parser ($VERSION)\n");
 print("===========================================\n");
 
 if (defined $CMDOPTION)
 {
-        if ($CMDOPTION ne "prefs")
-        {
-                print "Unknown command line option: '$CMDOPTION'\nOnly allowed option is 'prefs'\n";
-                exit 1;
-        }
+	if ($CMDOPTION ne "prefs")
+	{
+		print "Unknown command line option: '$CMDOPTION'\nOnly allowed option is 'prefs'\n";
+		exit 1;
+	}
 	system("$FILEEDITOR $CONF_FILE");
 	exit 0;
 }
+
 unless (Email::Valid->address($NotifyEmail))
 {
 	print("Invalid email address: '$NotifyEmail'\n");
-	exit (1);
+	exit(1);
 }
 
+# Work out yesterday's date. mktime normalises "day 0" into the last day of
+# the previous month (and Jan 0 into Dec 31 of last year). Using noon avoids
+# daylight-saving edge cases.
+my @now = localtime();
+my $Yesterday = strftime("%Y-%m-%d",
+	localtime(mktime(0, 0, 12, $now[3] - 1, $now[4], $now[5])));
+print "Looking for downloads on $Yesterday\n";
+
 ### The database handle
-$dbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
-                           $DB_Owner,
-                           $DB_Pswd) 
-                           or die "Can't connect to database: $DBI::errstr\n";
+my $dbh = DBI->connect("DBI:mysql:database=$DB_Name;host=localhost",
+                       $DB_Owner, $DB_Pswd, { RaiseError => 0, PrintError => 1 })
+	or die "Can't connect to database: $DBI::errstr\n";
 
-$DB_Table = $DB_Prefix . "jdownloads_logs";
+my $DB_Table = $DB_Prefix . "jdownloads_logs";
 
-### The statement handle
-my $sth = $dbh->prepare("SELECT id, log_file_size, log_file_name, log_title, log_datetime FROM $DB_Table");
+# Let MySQL do the date filtering instead of pulling the whole log table.
+my $sth = $dbh->prepare(
+	"SELECT log_file_size, log_file_name, log_title FROM $DB_Table " .
+	"WHERE DATE(log_datetime) = ?")
+	or die $dbh->errstr;
+$sth->execute($Yesterday) or die $dbh->errstr;
 
-$sth->execute or die $dbh->errstr;
-
-my $rows_found = $sth->rows;
-
-my ($sec,$min,$hour,$curday,$curmon,$curyear,$wday,$yday,$isdst) = localtime();
-
-$curyear = 1900 + $curyear;
-$curmon = 1 + $curmon;
-$curday = $curday -= 1;	# Set previous day
-
-#print "curyear '$curyear'\n";
-#print "curmon '$curmon'\n";
-#print "curday '$curday'\n";
-open (my $TempFH, '>', $TempFile) || die ($!);
+my %SawFiles;
+my %SawSize;
+my $NumSeen = 0;
+my $human = Number::Bytes::Human->new(bs => 1000, round_style => 'round', precision => 2);
 
 while (my $row = $sth->fetchrow_hashref)
 {
-	$CurId = $row->{'id'};
-	my $FileSize = $row->{'log_file_size'};
-	my $FileName = $row->{'log_file_name'};
 	my $FileTitle = $row->{'log_title'};
-	my $FileDateTime = $row->{'log_datetime'};
-	if ($FileTitle ne "")
+	next if (! defined($FileTitle) || $FileTitle eq "");
+
+	my $FileName = $row->{'log_file_name'} // "(unknown)";
+	my $FileSize = $row->{'log_file_size'} // 0;
+
+	$SawFiles{$FileName} += 1;
+	$NumSeen += 1;
+
+	if ($FileSize !~ /^\d+(\.\d+)?$/)
 	{
-		#print "Saw '$FileTitle'\n";
-		#print "\tSaw '$FileName'\n";
-		# print "\tSaw '$FileDateTime'\n";
-		my @DateString = split(/ /, $FileDateTime);
-		# print "\tDateOnly = '$DateString[0]'\n";
-		my ($FileYear, $FileMonth, $FileDay) = split(/-/, $DateString[0]);
-		# print "Year = $FileYear\n";
-		# print "Month = $FileMonth\n";
-		# print "Day = $FileDay\n";
-		if ($curyear != $FileYear)
-		{
-			#print "Year '$curyear' Different\n";
-			next;
-		}
-		elsif ($curmon != $FileMonth)
-		{
-			# print "Month '$curmon' Different\n";
-			next;
-		}
-		elsif ($curday != $FileDay)
-		{
-			#print "Day '$curday' Different\n";
-			next;
-		}
-		$SawFiles{$FileName} += 1;
-		$NumSeen += 1;
-		my $human = Number::Bytes::Human->new(bs => 1000, round_style => 'round', precision => 2);
-		if ($FileSize == 0)
-		{
-			$FileSize = "< 1kb";
-		}
-		else
-		{
-			$FileSize = $FileSize * 1000;
-			$FileSize = $human->format($FileSize);
-		}
-		$SawSize{$FileName} = $FileSize;
+		# Not a plain number - keep whatever jDownloads stored
 	}
+	elsif ($FileSize == 0)
+	{
+		$FileSize = "< 1kb";
+	}
+	else
+	{
+		$FileSize = $human->format($FileSize * 1000);
+	}
+	$SawSize{$FileName} = $FileSize;
 }
-for my $MyFile (keys %SawFiles)
-{
-	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-	#print "The size '$MyFile' is $SawSize{$MyFile}\n";
-	#print ($TempFH "$SawFiles{$MyFile} - $FileName - $FileTitle\n");
-	print ($TempFH "$SawFiles{$MyFile} - $MyFile - $SawSize{$MyFile}\n");
-	#print "File from yesterday: $FileName\n";
-}
-close($TempFH);
-
-# Sort the temp file
-system("sort -frn $TempFile > $SortedFile");
-if (-f $TempFile)
-{
-	unlink ($TempFile);
-}
-
-if (! -f $SortedFile)
-{
-	print "Sorted file not found - aborting\n";
-	exit 1;
-}
-
-open (my $SortedFH, '<', $SortedFile) || die ($!);
-open (my $EmailFH, '>', $EmailMessage) || die ($!);
-print ($EmailFH "Downloads - File Name - File Size\n");
-print ($EmailFH "================================================\n");
-close ($EmailFH);
-system("cat $SortedFile >> $EmailMessage");
-unlink($SortedFile);
+$sth->finish;
+$dbh->disconnect;
 
 if ($NumSeen == 0)
 {
@@ -240,18 +144,47 @@ if ($NumSeen == 0)
 	exit 0;
 }
 
+sub html_escape
+{
+	my $s = shift;
+	$s =~ s/&/&amp;/g;
+	$s =~ s/</&lt;/g;
+	$s =~ s/>/&gt;/g;
+	$s =~ s/"/&quot;/g;
+	return $s;
+}
+
+# Build the HTML body in memory: most-downloaded first, then by name.
+my $rows = "";
+for my $MyFile (sort { $SawFiles{$b} <=> $SawFiles{$a} || lc($a) cmp lc($b) } keys %SawFiles)
+{
+	print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
+	$rows .= "<tr><td>$SawFiles{$MyFile}</td><td>" . html_escape($MyFile) .
+	         "</td><td>" . html_escape($SawSize{$MyFile}) . "</td></tr>\n";
+}
+
+my $message = <<"END";
+<html>
+<head>
+<title>Latest Files</title>
+</head>
+<body>
+<h3>Downloads on $Yesterday</h3>
+<table border=2>
+<tr><th>Count</th><th>Filename</th><th>File Size</th></tr>
+$rows</table>
+</body>
+</html>
+END
+
 # Create the mail
-open(MAIL, "|/usr/sbin/sendmail -t");
+open(my $MAIL, "|-", "/usr/sbin/sendmail -t") or die "Can't run sendmail: $!";
+print $MAIL "To: $NotifyEmail\n";
+print $MAIL "From: noreply\@$hostname\n";
+print $MAIL "Subject: $hostname: $NumSeen files downloaded on $Yesterday\n";
+print $MAIL "MIME-Version: 1.0\n";
+print $MAIL "Content-Type: text/html; charset=UTF-8\n\n";
+print $MAIL $message;
+close($MAIL) or warn "sendmail exited with status $?\n";
 
-# Email Header
-print MAIL "To: $NotifyEmail\n";
-print MAIL "From: noreply\@$hostname\n";
-print MAIL "Subject: $hostname: $NumSeen files downloaded\n\n";
-
-# Email Body
-my $message = `cat $EmailMessage`;
-print MAIL $message;
-close(MAIL);
-
-unlink($EmailMessage);
 exit(0);

@@ -1,4 +1,4 @@
-# scan_downloads (1.2.0) & scan_phodownloads (1.0.0) & disable_missing (1.0.0)
+# scan_downloads (1.4.0) & scan_phodownloads (1.0.0) & disable_missing (1.0.0)
 Scans the files downloaded using jdownloads or phocadownloads on the previous day and emails the results to the specified address.
 
 ***
