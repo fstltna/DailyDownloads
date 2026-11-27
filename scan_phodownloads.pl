@@ -1,55 +1,26 @@
 #!/usr/bin/perl
 
-# This tool scans the entries in the phocadownloadsa log file for
-# entries for files downloaded the previous day
+# This tool scans the entries in the phocadownload log table for
+# files downloaded the previous day and emails a summary.
 
 use strict;
 use warnings;
 use DBI;
-use DBD::mysql;
-#use Email::MIME;
 use Email::Valid;
-#use Email::Simple;
-#use Email::Simple::Creator;
-#use Email::Sender::Simple qw(sendmail);
-use Number::Bytes::Human qw(format_bytes parse_bytes);
+use POSIX qw(mktime strftime);
 
 # No changes below here
-my $CurId=0;
-my $VERSION="1.0.0";
-my $DB_Owner="";
-my $DB_Pswd="";
-my $DB_Name="";
-my $DB_Prefix="";
-my $DB_Table="";
-my $FILE_DB_Table="";
-my $dbh;
-my $filedbh;
-my $CONF_FILE="$ENV{HOME}/.dailyphocadownloads.ini";
-my $NotifyEmail="";
-my $FILEEDITOR = $ENV{EDITOR};
-my $TempFile = "/tmp/dailyphocadown_temp-$$.txt";
-my $SortedFile = "/tmp/dailyphocadown_sorted-$$.txt";
-my $EmailMessage = "/tmp/email-$$.txt";
-if (-f $TempFile)
-{
-	print "Temp file already exists\n";
-	exit 1;
-}
-my %SawFiles;
-my $NumSeen = 0;
+my $VERSION     = "1.3.0";
+my $DB_Owner    = "";
+my $DB_Pswd     = "";
+my $DB_Name     = "";
+my $DB_Prefix   = "";
+my $NotifyEmail = "";
+my $CONF_FILE   = "$ENV{HOME}/.dailyphocadownloads.ini";
+my $FILEEDITOR  = (defined $ENV{EDITOR} && $ENV{EDITOR} ne "") ? $ENV{EDITOR} : "vi";
+
 my $hostname = `hostname`;
 chomp($hostname);
-my $EmailBody = "Downloads\tFile Name\n================================================\n";
-
-if (! defined($FILEEDITOR))
-{
-        $FILEEDITOR = "vi";
-}
-elsif ($FILEEDITOR eq "")
-{
-        $FILEEDITOR = "vi";
-}
 
 # Get if they said a option
 my $CMDOPTION = shift;
@@ -65,198 +36,116 @@ DB_DBtblpfx	zzz_
 NotifyEmail	some_address
 END_MESSAGE
 	open (my $FH, ">", $CONF_FILE) or die "Could not create config file '$CONF_FILE' $!";
-        print $FH "$DefaultConf\n";
+	print $FH $DefaultConf;
 	close($FH);
 	system("$FILEEDITOR $CONF_FILE");
 	exit 0;
 }
 
-open(CONF, "<$CONF_FILE") || die("Unable to read config file '$CONF_FILE'");
-while(<CONF>)
+open(my $CONF, "<", $CONF_FILE) || die("Unable to read config file '$CONF_FILE': $!");
+while (<$CONF>)
 {
-	chop;
-	if ($_ eq "")
+	s/\r?\n$//;		# chomp, also handles CRLF line endings
+	next if ($_ eq "");
+	my ($FIELD_TYPE, $FIELD_VALUE) = split(/\t/, $_, 2);
+	if (! defined($FIELD_VALUE))
 	{
+		print "No tab-separated value for config line '$_'\n";
 		next;
 	}
-	my ($FIELD_TYPE, $FIELD_VALUE) = split (/	/, $_);
-	#print("Type is $FIELD_TYPE\n");
-	if (! defined($FIELD_TYPE))
-	{
-		# Field type not defined
-		print "Field type not defined for '$_'\n";
-		next;
-	}
-	if ($FIELD_TYPE eq "DB_User")
-	{
-		$DB_Owner = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "DB_Pswd")
-	{
-		$DB_Pswd = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "DB_DBName")
-	{
-		$DB_Name = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "DB_DBtblpfx")
-	{
-		$DB_Prefix = $FIELD_VALUE;
-	}
-	elsif ($FIELD_TYPE eq "NotifyEmail")
-	{
-		$NotifyEmail = $FIELD_VALUE;
-	}
+	if    ($FIELD_TYPE eq "DB_User")     { $DB_Owner    = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "DB_Pswd")     { $DB_Pswd     = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "DB_DBName")   { $DB_Name     = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "DB_DBtblpfx") { $DB_Prefix   = $FIELD_VALUE; }
+	elsif ($FIELD_TYPE eq "NotifyEmail") { $NotifyEmail = $FIELD_VALUE; }
 }
-close(CONF);
+close($CONF);
 
 print("dailyphocadownloads log parser ($VERSION)\n");
 print("===========================================\n");
 
 if (defined $CMDOPTION)
 {
-        if ($CMDOPTION ne "prefs")
-        {
-                print "Unknown command line option: '$CMDOPTION'\nOnly allowed option is 'prefs'\n";
-                exit 1;
-        }
+	if ($CMDOPTION ne "prefs")
+	{
+		print "Unknown command line option: '$CMDOPTION'\nOnly allowed option is 'prefs'\n";
+		exit 1;
+	}
 	system("$FILEEDITOR $CONF_FILE");
 	exit 0;
 }
+
 unless (Email::Valid->address($NotifyEmail))
 {
 	print("Invalid email address: '$NotifyEmail'\n");
-	exit (1);
+	exit(1);
 }
 
-### The database handles
-$dbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
-                           $DB_Owner,
-                           $DB_Pswd) 
-                           or die "Can't connect to database: $DBI::errstr\n";
-$filedbh = DBI->connect ("DBI:mysql:database=$DB_Name:host=localhost",
-	$DB_Owner,
-	$DB_Pswd) 
+# Work out yesterday's date. mktime normalises "day 0" into the last day of
+# the previous month (and Jan 0 into Dec 31 of last year). Using noon avoids
+# daylight-saving edge cases.
+my @now = localtime();
+my $Yesterday = strftime("%Y-%m-%d",
+	localtime(mktime(0, 0, 12, $now[3] - 1, $now[4], $now[5])));
+print "Looking for downloads on $Yesterday\n";
+
+### The database handle
+my $dbh = DBI->connect("DBI:mysql:database=$DB_Name;host=localhost",
+                       $DB_Owner, $DB_Pswd, { RaiseError => 0, PrintError => 1 })
 	or die "Can't connect to database: $DBI::errstr\n";
 
-$DB_Table = $DB_Prefix . "phocadownload_logging";
+my $LogTable  = $DB_Prefix . "phocadownload_logging";
+my $FileTable = $DB_Prefix . "phocadownload";
 
-### The statement handle
-my $sth = $dbh->prepare("SELECT id, fileid, catid, userid, ip, page, date, type, params FROM $DB_Table");
+# One query does the date filtering, the per-file counting, and the
+# filename lookup (instead of re-reading the whole file table for each file).
+my $sth = $dbh->prepare(
+	"SELECT l.fileid AS fileid, f.filename AS filename, COUNT(*) AS cnt " .
+	"FROM $LogTable l LEFT JOIN $FileTable f ON f.id = l.fileid " .
+	"WHERE l.fileid <> 0 AND DATE(l.`date`) = ? " .
+	"GROUP BY l.fileid, f.filename " .
+	"ORDER BY cnt DESC, f.filename")
+	or die $dbh->errstr;
+$sth->execute($Yesterday) or die $dbh->errstr;
 
-$sth->execute or die $dbh->errstr;
+sub html_escape
+{
+	my $s = shift;
+	$s =~ s/&/&amp;/g;
+	$s =~ s/</&lt;/g;
+	$s =~ s/>/&gt;/g;
+	$s =~ s/"/&quot;/g;
+	return $s;
+}
 
-my $rows_found = $sth->rows;
-
-my ($sec,$min,$hour,$curday,$curmon,$curyear,$wday,$yday,$isdst) = localtime();
-
-$curyear = 1900 + $curyear;
-$curmon = 1 + $curmon;
-$curday = $curday -= 1;	# Set previous day
-
-#print "curyear '$curyear'\n";
-#print "curmon '$curmon'\n";
-#print "curday '$curday'\n";
-open (my $TempFH, '>', $TempFile) || die ($!);
+my $NumSeen = 0;
+my $rows = "";
 
 while (my $row = $sth->fetchrow_hashref)
 {
-	$CurId = $row->{'id'};
-	my $CurIP = $row->{'ip'};
-	my $FileDateTime = $row->{'date'};
-	my $CurFileId = $row->{'fileid'};
-	if ($CurFileId != 0)
-	{
-		# print "\tSaw '$FileDateTime'\n";
-		my @DateString = split(/ /, $FileDateTime);
-		# print "\tDateOnly = '$DateString[0]'\n";
-		my ($FileYear, $FileMonth, $FileDay) = split(/-/, $DateString[0]);
-		#print "Year = $FileYear\n";
-		#print "Month = $FileMonth\n";
-		#print "Day = $FileDay\n";
-		if ($curyear != $FileYear)
-		{
-			#print "Year '$curyear' Different\n";
-			next;
-		}
-		elsif ($curmon != $FileMonth)
-		{
-			# print "Month '$curmon' Different\n";
-			next;
-		}
-		elsif ($curday != $FileDay)
-		{
-			#print "Day '$curday' Different\n";
-			next;
-		}
-		#print "sawfileid $CurFileId\n";
-		$SawFiles{$CurFileId} += 1;
-		$NumSeen += 1;
-	}
+	# Fall back to the file id if the file has since been deleted
+	my $FileName = (defined $row->{'filename'} && $row->{'filename'} ne "")
+		? $row->{'filename'} : "(file id $row->{'fileid'})";
+	print "The count of '$FileName' is $row->{'cnt'}\n";
+	$rows .= "<tr><td>$row->{'cnt'}</td><td>" . html_escape($FileName) . "</td></tr>\n";
+	$NumSeen += $row->{'cnt'};
 }
 
-sub GetFileName
-{
-	my $FILE_DB_Table = $DB_Prefix . "phocadownload";
-	my $filesth = $filedbh->prepare("SELECT id, title, filename, date FROM $FILE_DB_Table");
-	$filesth->execute or die $dbh->errstr;
-	my $filerows_found = $filesth->rows;
-	my $WantFile = $_[0];
-	#print "WantFile = $WantFile\n";
-
-	my $CurFileName = "";
-	while (my $filerow = $filesth->fetchrow_hashref)
-	{
-		my $TempCurId = $filerow->{'id'};
-		if ($TempCurId != $WantFile)
-		{
-			next;
-		}
-		#print "saw it\n";
-		$CurFileName  = $filerow->{'filename'};
-		last;
-	}
-	if ($CurFileName eq "")
-	{
-		$CurFileName  = $WantFile;
-	}
-	#print "returning $CurFileName\n";
-	return $CurFileName;
-}
-
-for my $MyFile (keys %SawFiles)
-{
-	#print "The count of '$MyFile' is $SawFiles{$MyFile}\n";
-	if ($MyFile eq "")
-	{
-		next;
-	}
-	#print "MyFile = '$MyFile'\n";	# ZZZ
-	my $FileName = GetFileName($MyFile);
-	print ($TempFH "$SawFiles{$MyFile}\t\t$FileName\n");
-}
-close($TempFH);
-
-# Sort the temp file
-system("sort -frn $TempFile > $SortedFile");
-if (-f $TempFile)
-{
-	unlink ($TempFile);
-}
-
-if (! -f $SortedFile)
-{
-	print "Sorted file not found - aborting\n";
-	exit 1;
-}
-
-open (my $SortedFH, '<', $SortedFile) || die ($!);
-open (my $EmailFH, '>', $EmailMessage) || die ($!);
-print ($EmailFH "Downloads\tFile Name\n");
-print ($EmailFH "================================================\n");
-close ($EmailFH);
-system("cat $SortedFile >> $EmailMessage");
-unlink($SortedFile);
+my $Body = <<"END";
+<html>
+<head>
+<title>Latest Files</title>
+</head>
+<body>
+<h3>Downloads on $Yesterday</h3>
+<table border=2>
+<tr><th>Count</th><th>Filename</th></tr>
+$rows</table>
+</body>
+</html>
+END
+$sth->finish;
+$dbh->disconnect;
 
 if ($NumSeen == 0)
 {
@@ -266,17 +155,14 @@ if ($NumSeen == 0)
 }
 
 # Create the mail
-open(MAIL, "|/usr/sbin/sendmail -t");
+open(my $MAIL, "|-", "/usr/sbin/sendmail -t") or die "Can't run sendmail: $!";
+print $MAIL "To: $NotifyEmail\n";
+print $MAIL "From: noreply\@$hostname\n";
+print $MAIL "Subject: $hostname: $NumSeen files downloaded on $Yesterday\n";
+print $MAIL "MIME-Version: 1.0\n";
+print $MAIL "Content-Type: text/html; charset=UTF-8\n\n";
+print $MAIL $Body;
+close($MAIL) or warn "sendmail exited with status $?\n";
 
-# Email Header
-print MAIL "To: $NotifyEmail\n";
-print MAIL "From: noreply\@$hostname\n";
-print MAIL "Subject: $hostname: $NumSeen files downloaded\n\n";
-
-# Email Body
-my $message = `cat $EmailMessage`;
-print MAIL $message;
-close(MAIL);
-
-unlink($EmailMessage);
 exit(0);
+
